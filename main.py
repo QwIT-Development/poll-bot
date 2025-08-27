@@ -20,7 +20,7 @@ else:
 load_dotenv()
 TOKEN = getenv("DISCORD_TOKEN")
 
-bot = commands.Bot(command_prefix="p!", intents=discord.Intents.all())
+bot = commands.Bot(command_prefix="p!", intents=discord.Intents.all(), allowed_mentions=discord.AllowedMentions.none())
 bot.owner_ids = [
 	513102328828788757,  # CoffeeLink
 	648168353453572117,  # Pearoo

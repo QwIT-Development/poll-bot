@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from os import getenv
 import sys
 import logging
+import sqlite3
 
 __version__ = "0.2.0"
 
@@ -29,6 +30,17 @@ bot.owner_ids = [
 	969269703082135612,  # zypherift
 	1291498084185935920, # 4831c0
 ]
+bot.connection = sqlite3.connect("polls.db")
+bot.cursor = bot.connection.cursor()
+bot.cursor.execute(
+	"""
+	CREATE TABLE IF NOT EXISTS polls (
+		poll_message_id INTEGER PRIMARY KEY,
+		poll_channel_id INTEGER NOT NULL,
+		log_message_id INTEGER NOT NULL
+	)
+	"""
+)
 
 @bot.event
 async def on_ready():

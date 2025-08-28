@@ -10,7 +10,18 @@ class PollLog(commands.Cog):
 		self.logging_channel = logging_channel
 		if self.logging_channel is None:
 			raise Exception("Logging channel not found")
-		self.polls = dict()  # will use db in the future
+
+	async def fetch_message_from_db(self, poll_channel_id: int, poll_message_id: int) -> discord.Message | None:
+		result = self.bot.cursor.execute("SELECT log_message_id FROM polls WHERE poll_channel_id = ? AND poll_message_id = ?", (poll_channel_id, poll_message_id))
+		row = result.fetchone()
+		if not row:
+			return None
+		try:
+			channel = await self.bot.fetch_channel(poll_channel_id)
+			message = await channel.fetch_message(row[0])
+			return message
+		except (discord.NotFound, discord.Forbidden):
+			return None
 
 	@staticmethod
 	def create_poll_log_message(message: discord.Message) -> str:
@@ -40,17 +51,18 @@ class PollLog(commands.Cog):
 		if message.poll:
 			poll_message_content = self.create_poll_log_message(message)
 			poll_message = await self.logging_channel.send(poll_message_content)
-			self.polls.update({message.id: poll_message})
+			self.bot.cursor.execute("INSERT INTO polls (poll_message_id, poll_channel_id, log_message_id) VALUES (?, ?, ?)", (message.id, message.channel.id, poll_message.id))
+			self.bot.connection.commit()
 
 	@commands.Cog.listener()
 	async def on_poll_vote_add(self, user: Union[discord.User, discord.Member], answer: discord.PollAnswer):
-		message = self.polls.get(answer.poll.message.id)
+		message = await self.fetch_message_from_db(answer.poll.message.channel.id, answer.poll.message.id)
 		if message is not None:
 			await message.edit(content=self.create_poll_log_message(answer.poll.message) + f"\n\n{user.mention} voted for \"{answer.text}\"")
 
 	@commands.Cog.listener()
 	async def on_poll_vote_remove(self, user: Union[discord.User, discord.Member], answer: discord.PollAnswer):
-		message = self.polls.get(answer.poll.message.id)
+		message = await self.fetch_message_from_db(answer.poll.message.channel.id, answer.poll.message.id)
 		if message is not None:
 			await message.edit(content=self.create_poll_log_message(answer.poll.message) + f"\n\n{user.mention} removed their vote from \"{answer.text}\"")
 
@@ -60,7 +72,7 @@ class PollLog(commands.Cog):
 		if message.author.bot:
 			return
 		if message.poll and message.poll.is_finalised():
-			poll_message = self.polls.get(message.id)
+			poll_message = await self.fetch_message_from_db(message.channel.id, message.id)
 			if poll_message is not None:
 				victor_answer = message.poll.victor_answer or max(message.poll.answers, key=lambda x: x.vote_count)
 				poll_message_content = self.create_poll_log_message(message)
@@ -70,7 +82,6 @@ class PollLog(commands.Cog):
 					f"\n**{victor_answer.text}** `({round(victor_answer.vote_count / (message.poll.total_votes or 1) * 100)}%)`"
 				)
 				await poll_message.edit(content=poll_message_content + f"\n\n{poll_ended}")
-				self.polls.pop(message.id)
 
 async def setup(bot: commands.Bot):
 	await bot.add_cog(PollLog(bot, await bot.fetch_channel(1410278509569507420)))

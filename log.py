@@ -43,6 +43,8 @@ class PollLog(commands.Cog):
 			f"\nYou can choose {multiple}."
 			f"\n"
 			f"\n{'\n'.join(options)}"
+			f"\n"
+			f"\n[Jump to original message]({poll.message.jump_url})"
 		)
 		return message
 
@@ -58,13 +60,13 @@ class PollLog(commands.Cog):
 	async def on_poll_vote_add(self, user: Union[discord.User, discord.Member], answer: discord.PollAnswer):
 		message = await self.fetch_message_from_db(answer.poll.message.channel.id, answer.poll.message.id)
 		if message is not None:
-			await message.edit(content=self.create_poll_log_message(answer.poll.message) + f"\n\n{user.mention} voted for \"{answer.text}\"")
+			await message.edit(content=message.content + f"\n{user.mention} voted for \"{answer.text}\"")
 
 	@commands.Cog.listener()
 	async def on_poll_vote_remove(self, user: Union[discord.User, discord.Member], answer: discord.PollAnswer):
 		message = await self.fetch_message_from_db(answer.poll.message.channel.id, answer.poll.message.id)
 		if message is not None:
-			await message.edit(content=self.create_poll_log_message(answer.poll.message) + f"\n\n{user.mention} removed their vote from \"{answer.text}\"")
+			await message.edit(content=message.content + f"\n{user.mention} removed their vote from \"{answer.text}\"")
 
 	@commands.Cog.listener()
 	async def on_message_edit(self, before: discord.Message, after: discord.Message):
@@ -75,13 +77,12 @@ class PollLog(commands.Cog):
 			poll_message = await self.fetch_message_from_db(message.channel.id, message.id)
 			if poll_message is not None:
 				victor_answer = message.poll.victor_answer or max(message.poll.answers, key=lambda x: x.vote_count)
-				poll_message_content = self.create_poll_log_message(message)
 				poll_ended = (
 					f"The poll has closed" + (" early" if message.poll.expires_at < datetime.datetime.now(tz=datetime.timezone.utc) else "") + "."
 					f"\n## Winner"
 					f"\n**{victor_answer.text}** `({round(victor_answer.vote_count / (message.poll.total_votes or 1) * 100)}%)`"
 				)
-				await poll_message.edit(content=poll_message_content + f"\n\n{poll_ended}")
+				await poll_message.edit(content=poll_message.content + f"\n\n{poll_ended}")
 
 async def setup(bot: commands.Bot):
 	await bot.add_cog(PollLog(bot, await bot.fetch_channel(1410278509569507420)))

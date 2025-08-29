@@ -77,10 +77,11 @@ class PollLog(commands.Cog):
 			poll_message = await self.fetch_message_from_db(message.channel.id, message.id)
 			if poll_message is not None:
 				victor_answer = message.poll.victor_answer or max(message.poll.answers, key=lambda x: x.vote_count)
+				result = (f"\n**{victor_answer.text}** `({round(victor_answer.vote_count / (message.poll.total_votes or 1) * 100)}%)`" if victor_answer.vote_count > 0 else "\nNo votes were cast.")
 				poll_ended = (
 					f"The poll has closed" + (" early" if message.poll.expires_at < datetime.datetime.now(tz=datetime.timezone.utc) else "") + "."
 					f"\n## Winner"
-					f"\n**{victor_answer.text}** `({round(victor_answer.vote_count / (message.poll.total_votes or 1) * 100)}%)`" if victor_answer.vote_count > 0 else "\nNo votes were cast."
+					f"{result}"
 				)
 				await poll_message.edit(content=poll_message.content + f"\n\n{poll_ended}")
 
